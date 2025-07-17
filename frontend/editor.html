@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assembly Plan Editor</title>
+    <style>
+        /* --- Общие стили --- */
+        :root {
+            --bg-color: #282c34;
+            --sidebar-bg: #21252b;
+            --panel-bg: #323842;
+            --item-bg: #454c59;
+            --text-color: #abb2bf;
+            --highlight-color: #61afef;
+            --highlight-text: #ffffff;
+            --button-bg: #61afef;
+            --button-hover-bg: #528baf;
+            --border-color: #4b5263;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            /* Предотвращаем прокрутку всей страницы */
+        }
+
+        /* --- Контейнер для 3D-вьювера --- */
+        #viewer-container {
+            flex-grow: 1;
+            /* Занимает все доступное пространство */
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* --- Боковая панель --- */
+        #sidebar {
+            width: 400px;
+            min-width: 350px;
+            background-color: var(--sidebar-bg);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            border-left: 1px solid var(--border-color);
+            overflow-y: auto;
+            /* Добавляем прокрутку, если контент не помещается */
+        }
+
+        h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            color: var(--highlight-text);
+        }
+
+        .panel {
+            background-color: var(--panel-bg);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        /* --- Стили для списков (Компоненты и Шаги) --- */
+        ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 200px;
+            /* Ограничиваем высоту, чтобы появилась прокрутка */
+            overflow-y: auto;
+        }
+
+        li {
+            background-color: var(--item-bg);
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            border: 1px solid transparent;
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+
+        /* --- Стили для Drag-and-Drop --- */
+        #step-list li {
+            cursor: grab;
+        }
+
+        .drag-handle {
+            display: inline-block;
+            margin-right: 15px;
+            font-size: 1.2em;
+            color: var(--text-color);
+        }
+
+        .sortable-ghost {
+            opacity: 0.4;
+            background: var(--highlight-color);
+        }
+
+        /* --- Элементы управления (инпуты, кнопки) --- */
+        input[type="text"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+            background-color: var(--item-bg);
+            color: var(--text-color);
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: var(--button-bg);
+            color: var(--highlight-text);
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--button-hover-bg);
+        }
+
+        /* --- Панель информации о выбранном меше --- */
+        #selected-mesh-info p {
+            background: #1c1f24;
+            padding: 8px;
+            border-radius: 4px;
+            word-break: break-all;
+            /* Переносим длинные имена мешей */
+        }
+
+        #selected-mesh-info strong {
+            color: var(--highlight-color);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- 1. Область для 3D-рендеринга (занимает все доступное место) -->
+    <main id="viewer-container">
+        <!-- Canvas от Three.js будет вставлен сюда -->
+    </main>
+
+    <!-- 2. Боковая панель с инструментами (одна, основная) -->
+    <aside id="sidebar">
+        
+        <!-- Панель А: Управление 3D-моделью -->
+        <section class="panel">
+            <h2>3D Model</h2>
+            <button id="upload-model-btn">Upload/Change Model</button>
+            <!-- Этот input скрыт, мы будем вызывать его клик программно -->
+            <input type="file" id="upload-model-input" accept=".glb" style="display: none;" />
+        </section>
+
+        <!-- Панель Б: Информация о выбранной детали -->
+        <section class="panel" id="selected-mesh-info">
+            <h2>Selected Detail</h2>
+            <p>Mesh Name: <strong id="mesh-name">None</strong></p>
+            <input type="text" id="component-name-input" placeholder="Enter component display name...">
+            <button id="add-component-btn">Add to Components List</button>
+        </section>
+
+        <!-- Панель В: Список всех добавленных компонентов -->
+        <section class="panel">
+            <h2>Components</h2>
+            <ul id="component-list">
+                <!-- Сюда будут добавляться компоненты через JS -->
+            </ul>
+        </section>
+
+        <!-- Панель Г: Список шагов сборки -->
+        <section class="panel">
+            <h2>Assembly Steps (Drag to reorder)</h2>
+            <ul id="step-list">
+                <!-- Сюда будут добавляться шаги через JS -->
+            </ul>
+        </section>
+        
+        <!-- Кнопка сохранения всего плана -->
+        <button id="save-plan-btn">Save Assembly Plan</button>
+    </aside>
+
+    <!-- Загрузка скрипта для редактора -->
+    <script type="module" src="/src/editor.ts"></script>
+</body>
+</html>

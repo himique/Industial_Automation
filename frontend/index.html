@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MVP Assembly Helper</title>
+    <style>
+        body { margin: 0; background-color: #333; color: white; font-family: sans-serif; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; }
+        #nextStepBtn { margin-top: 10px; padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        /* ... другие стили ... */
+
+        #labels-container {position: absolute;top: 0;left: 0;width: 100%;height: 100%;pointer-events: none;overflow: hidden;}
+
+        .label {position: absolute;background-color: #ff6600; /* Оранжевый цвет */color: white;padding: 5px 10px;border-radius: 50%;font-family: sans-serif;font-weight: bold;font-size: 14px;
+    /* Смещаем метку, чтобы ее центр был на точке, а не левый верхний угол */transform: translate(-50%, -50%); user-select: none; /* Чтобы текст нельзя было выделить */transition: opacity 0.3s;}
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h3>Step: <span id="step-number">...</span></h3>
+        <p>Do: <span id="step-action">Loading...</span></p>
+        <button id="nextStepBtn">Next step</button>
+        <div id="labels-container"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

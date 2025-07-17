@@ -1,0 +1,12 @@
+{
+  "dependencies": {
+    "@tweenjs/tween.js": "^25.0.0",
+    "sortablejs": "^1.15.6",
+    "three": "^0.178.0"
+  },
+  "devDependencies": {
+    "@types/sortablejs": "^1.15.8",
+    "@types/three": "^0.178.1",
+    "@types/tweenjs": "^1.0.8"
+  }
+}
