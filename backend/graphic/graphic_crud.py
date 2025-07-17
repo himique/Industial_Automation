@@ -56,6 +56,7 @@ async def get_full_assembly_plan_orm(db: AsyncSession, product_id: int) -> Optio
     # 1. Создаем Pydantic-объект из ORM-объекта (этот шаг у вас и падал)
     plan_pydantic = schemas.AssemblyPlan.model_validate(plan_orm)
     
+    
     # И возвращаем именно его!
     return plan_pydantic
 
