@@ -31,7 +31,7 @@ class Dashboard {
     }
 
     private checkAuth(): void {
-        if (!localStorage.getItem("admin_token")) {
+        if (!localStorage.getItem("admin_token")) { 
             alert("Authentication required. Redirecting to login page.");
             window.location.href = '/login.html';
         }

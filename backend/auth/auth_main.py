@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.responses import JSONResponse
 from . import auth_schemas
 from . import auth_crud
 from dependencies import get_db
@@ -24,13 +25,15 @@ async def login_for_access_token(
         )
     
     access_token = auth_crud.create_access_token(data={"sub": user.username})
+    content = {"message": "Login successful", "access_token": access_token, "token_type": "bearer"}
+    response = JSONResponse(content=content)
     response.set_cookie(
-        key="access_token_cookie", # Имя cookie
+        key="access_token", # Имя cookie
         value=access_token,
         httponly=True,   # <-- Самый важный флаг! Запрещает доступ из JS.
         samesite="lax",  # Рекомендуемая защита от CSRF. 'strict' более безопасен, но может ломать редиректы.
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60, # Время жизни в секундах
         path="/",        # Cookie доступен для всего сайта
-        # secure=True,   # Включайте это, когда ваш сайт будет работать по HTTPS!
+        secure=False,   # Включайте это, когда ваш сайт будет работать по HTTPS!
     )
-    return {"message": "Login successful"}
+    return response

@@ -2,7 +2,7 @@
 const GQL_ENDPOINT = 'http://localhost:8000/graphql';
 
 export async function fetchGraphQL(query: string, variables: object = {}, isProtected: boolean = false) {
-    const headers = new Headers({ 'Content-Type': 'application/json' });
+    const headers = new Headers({ 'Content-Type': 'application/json'});
     if (isProtected) {
         const token = localStorage.getItem("admin_token");
         if (!token) {

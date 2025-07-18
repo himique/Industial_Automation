@@ -42,15 +42,7 @@ class Product(BaseModel):
     name: str
     description: Optional[str] = None
     model_path: Optional[str] = None
-
-    @computed_field(alias="modelUrl") # Указываем camelCase alias для вычисляемого поля
-    @property
-    def model_url(self) -> Optional[str]:
-        if self.model_path:
-            # os.path.join создает путь вида 'static/models/product_1.glb'
-            return os.path.join('static', 'models', self.model_path).replace('\\', '/')
-        return None
-
+    
     model_config = orm_alias_config # <-- Применяем конфиг
 
 class AssemblyPlan(BaseModel):
@@ -72,3 +64,4 @@ class ComponentInput(BaseModel):
 class AssemblyStepInput(BaseModel):
     component_id: int
     step_number: int
+    action_type: str

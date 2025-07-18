@@ -22,8 +22,9 @@ class LoginPage {
             const response = await fetch('http://localhost:8000/auth/token', {
                 method: 'POST',
                 body: formData,
+                credentials: 'include'
             });
-
+            console.log(response);
             const result = await response.json();
             if (!response.ok) {
                 throw new Error(result.detail || "Login failed.");

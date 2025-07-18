@@ -7,7 +7,6 @@ from strawberry.experimental.pydantic import type as pydantic_type
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.responses import Response
-
 # --- ЗАВИСИМОСТИ И МОДЕЛИ ---
 from dependencies import get_db
 from auth import auth_permissions
@@ -38,7 +37,8 @@ class ComponentInput:
 class AssemblyStepInput:
     component_id: int
     step_number: int
-
+    action_type: str
+    
 # --- КОРНЕВЫЕ ЗАПРОСЫ (Query) ---
 # (Без изменений)
 @strawberry.type

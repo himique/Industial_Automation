@@ -11,19 +11,19 @@ from . import graphic_schemas as schemas
 
 # --- Функции чтения (Read) ---
 async def get_all_products_orm(db: AsyncSession) -> List[models.Product]:
-    # ... (код без изменений)
+    
     stmt = select(models.Product).order_by(models.Product.name)
     result = await db.execute(stmt)
     return result.scalars().all()
 
 async def get_product_by_id_orm(db: AsyncSession, product_id: int) -> Optional[models.Product]:
-    # ... (код без изменений)
+    
     stmt = select(models.Product).where(models.Product.id == product_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 async def get_product_id_by_computer_name_orm(db: AsyncSession, computer_name: str) -> Optional[int]:
-    # ... (код без изменений)
+    
     stmt = select(models.Workstation.product_id).where(models.Workstation.computer_name.ilike(computer_name))
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
@@ -33,7 +33,7 @@ async def get_full_assembly_plan_orm(db: AsyncSession, product_id: int) -> Optio
     Собирает полный план сборки по ID продукта и возвращает его
     как ОБЫЧНЫЙ СЛОВАРЬ, а не ORM-объект.
     """
-    # Этот запрос остается без изменений
+    
     stmt = (
         select(models.AssemblyPlan)
         .where(models.AssemblyPlan.product_id == product_id)
@@ -101,7 +101,7 @@ async def create_assembly_plan_orm(db: AsyncSession, product_id: int, name: str,
             plan=new_plan, # Привязываем к объекту плана
             component_id=step_input.component_id,
             step_number=step_input.step_number,
-            action_type='tighten' # Пример значения по умолчанию
+            action_type=step_input.action_type # Пример значения по умолчанию
         )
         db.add(new_step)
 
