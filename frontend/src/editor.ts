@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import Sortable from 'sortablejs';
 import * as TWEEN from '@tweenjs/tween.js';
 import { fetchGraphQL } from './api';
+import { checkUserSession } from './auth';
 // --- Интерфейсы для данных ---
 interface Component {
     // Временный ID на фронтенде, пока не получили из БД
@@ -52,7 +53,7 @@ class AssemblyEditor {
 
     constructor() {
         // Проверяем авторизацию при входе на страницу
-        this.checkAuth();
+
         this.tweenGroup = new TWEEN.Group();
         // Получаем ID продукта из URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -112,27 +113,30 @@ class AssemblyEditor {
         }
     `;
         try {
+            const isAdmin = await checkUserSession();
             const data = await fetchGraphQL(query, { productId: this.productId }, true);
+            console.log(isAdmin)
+            // Защищенный запрос, т.к. только админ видит эту страницу
+            if (!isAdmin) {
+                if (!data || !data.productById) {
+                    throw new Error(`Product with ID ${this.productId} not found.`);
+                }
 
+                const product = data.productById;
+                const modelPath = product.modelPath;
+
+                if (modelPath) {
+                    // Если путь к модели есть, загружаем ее
+                    console.log(`Found model path: ${modelPath}. Loading model...`);
+                    await this.loadModel(modelPath);
+                } else {
+                    // Если пути нет, сообщаем пользователю и готовимся к загрузке
+                    console.log("Product exists, but has no model. Prompting for upload.");
+                    alert(`Product "${product.name}" is ready. Now, please upload a 3D model.`);
+                    // Здесь можно показать кнопку "Upload Model", которая по клику вызовет this.uploadInput.click();
+                }
+            };
             // Проверяем, что продукт вообще найден
-            if (!data || !data.productById) {
-                throw new Error(`Product with ID ${this.productId} not found.`);
-            }
-
-            const product = data.productById;
-            const modelPath = product.modelPath;
-
-            if (modelPath) {
-                // Если путь к модели есть, загружаем ее
-                console.log(`Found model path: ${modelPath}. Loading model...`);
-                await this.loadModel(modelPath);
-            } else {
-                // Если пути нет, сообщаем пользователю и готовимся к загрузке
-                console.log("Product exists, but has no model. Prompting for upload.");
-                alert(`Product "${product.name}" is ready. Now, please upload a 3D model.`);
-                // Здесь можно показать кнопку "Upload Model", которая по клику вызовет this.uploadInput.click();
-            }
-
         } catch (error) {
             let errorMessage = "Could not initialize editor.";
             if (error instanceof Error) {
@@ -158,9 +162,9 @@ class AssemblyEditor {
             console.log(`Uploading to: ${uploadUrl}`);
             const response = await fetch(uploadUrl, {
                 method: 'POST',
-                headers: { // Защищаем этот эндпоинт тоже
-                    'Authorization': `Bearer ${localStorage.getItem("admin_token")}`
-                },
+                // headers: { // Защищаем этот эндпоинт тоже
+                //     'Authorization': `Bearer ${localStorage.getItem("admin_token")}`
+                // },
                 body: formData,
             });
             if (!response.ok) throw new Error("File upload failed!");
@@ -197,14 +201,6 @@ class AssemblyEditor {
             }
         });
     }
-    // --- Авторизация ---
-    private checkAuth(): void {
-        if (!localStorage.getItem("admin_token")) {
-            alert("Authentication required. Redirecting to login page.");
-            window.location.href = '/login.html';
-        }
-    }
-
     // --- Логика клика по 3D модели ---
     private onCanvasClick = (event: MouseEvent) => {
         const bounds = this.renderer.domElement.getBoundingClientRect();

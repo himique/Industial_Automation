@@ -3,10 +3,10 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from passlib.context import CryptContext
-from jose import jwt
+from jose import jwt, JWTError
 from datetime import datetime, timedelta
 from typing import Optional
-
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from . import auth_models
 from core.config import settings
 
@@ -37,3 +37,46 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
+
+async def get_token_from_cookie(request: Request) -> str:
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
+    return token
+
+def get_username_from_token(token: str) -> Optional[str]:
+    """
+    Декодирует JWT токен и возвращает имя пользователя (sub).
+    Возвращает None, если токен недействителен или истек.
+    """
+    # В cookie мы сохраняли токен в формате "Bearer <token>"
+    # Нужно сначала убрать префикс
+    if token.startswith("Bearer "):
+        token = token.split(" ")[1]
+        
+    try:
+        # Декодируем токен с теми же параметрами, что и при создании
+        payload = jwt.decode(
+            token, 
+            settings.SECRET_KEY, 
+            algorithms=[settings.ALGORITHM]
+        )
+        
+        # Извлекаем "subject" (имя пользователя) из данных токена
+        username: Optional[str] = payload.get("sub")
+        
+        if username is None:
+            return None # В токене нет поля 'sub'
+            
+        return username
+        
+    except JWTError:
+        # Исключение JWTError возникает, если токен:
+        # - недействителен (неверная подпись)
+        # - просрочен (истек срок действия 'exp')
+        # - имеет неверный формат
+        return None
+    

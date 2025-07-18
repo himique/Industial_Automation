@@ -1,6 +1,7 @@
 // frontend/src/dashboard.ts
 
 import { fetchGraphQL } from './api';
+import { checkUserSession } from './auth';
 
 // Интерфейс для данных, которые мы получаем
 interface Product {
@@ -16,7 +17,7 @@ class Dashboard {
 
     constructor() {
         // Проверяем, что админ залогинен
-        this.checkAuth();
+
 
         // Находим элементы на странице dashboard.html
         this.createBtn = document.getElementById('create-product-btn') as HTMLButtonElement;
@@ -30,13 +31,6 @@ class Dashboard {
         this.loadProducts();
     }
 
-    private checkAuth(): void {
-        if (!localStorage.getItem("admin_token")) { 
-            alert("Authentication required. Redirecting to login page.");
-            window.location.href = '/login.html';
-        }
-    }
-
     private async loadProducts() {
         const query = `
             query GetAllProducts {
@@ -47,41 +41,45 @@ class Dashboard {
             }
         `;
         try {
+            const isAdmin = await checkUserSession();
+            console.log(isAdmin)
             // Защищенный запрос, т.к. только админ видит эту страницу
-            const data = await fetchGraphQL(query, {}, true);
-            const products: Product[] = data.allProducts;
+            if (!isAdmin) {
+                const data = await fetchGraphQL(query, {}, true);
+                const products: Product[] = data.allProducts;
 
-            this.productListEl.innerHTML = ''; // Очищаем старый список
+                this.productListEl.innerHTML = ''; // Очищаем старый список
 
-            if (products.length === 0) {
-                this.productListEl.innerHTML = '<li>No products found. Create one!</li>';
-                return;
-            }
+                if (products.length === 0) {
+                    this.productListEl.innerHTML = '<li>No products found. Create one!</li>';
+                    return;
+                }
 
-            // Для каждого продукта создаем элемент списка с кнопкой "Edit"
-            products.forEach(product => {
-                const li = document.createElement('li');
-                li.style.display = 'flex';
-                li.style.justifyContent = 'space-between';
-                li.style.alignItems = 'center';
+                // Для каждого продукта создаем элемент списка с кнопкой "Edit"
+                products.forEach(product => {
+                    const li = document.createElement('li');
+                    li.style.display = 'flex';
+                    li.style.justifyContent = 'space-between';
+                    li.style.alignItems = 'center';
 
-                const textSpan = document.createElement('span');
-                textSpan.textContent = `${product.name} (ID: ${product.id})`;
+                    const textSpan = document.createElement('span');
+                    textSpan.textContent = `${product.name} (ID: ${product.id})`;
 
-                const editButton = document.createElement('button');
-                editButton.textContent = 'Edit';
-                editButton.style.width = 'auto';
-                editButton.style.padding = '5px 10px';
+                    const editButton = document.createElement('button');
+                    editButton.textContent = 'Edit';
+                    editButton.style.width = 'auto';
+                    editButton.style.padding = '5px 10px';
 
-                // Кнопка "Edit" перенаправляет на редактор с нужным ID
-                editButton.onclick = () => {
-                    window.location.href = `/editor.html?product_id=${product.id}`;
-                };
+                    // Кнопка "Edit" перенаправляет на редактор с нужным ID
+                    editButton.onclick = () => {
+                        window.location.href = `/editor.html?product_id=${product.id}`;
+                    };
 
-                li.appendChild(textSpan);
-                li.appendChild(editButton);
-                this.productListEl.appendChild(li);
-            });
+                    li.appendChild(textSpan);
+                    li.appendChild(editButton);
+                    this.productListEl.appendChild(li);
+                });
+            };
 
         } catch (error) {
             if (error instanceof Error) {
