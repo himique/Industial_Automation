@@ -42,7 +42,8 @@ class Workstation(Base):
     id = Column(Integer, primary_key=True)
     computer_name = Column(String(255), unique=True, nullable=False, index=True)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
-
+    description = Column(Text) # description added
+    # description is missing
     # Связь "многие-к-одному"
     product = relationship("Product", back_populates="workstations")
 
