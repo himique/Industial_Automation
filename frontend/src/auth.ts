@@ -3,12 +3,10 @@ const GetMyTokenURL= 'http://localhost:8000/auth/token/me'
 export async function checkUserSession(): Promise<object | null> {
     try {
         const response = await fetch(GetMyTokenURL, {
-            method: 'GET',
-            credentials: 'include', // ОБЯЗАТЕЛЬНО, чтобы браузер отправил cookie
-            headers: {
-                'Content-Type': 'application/json',
-            },
-        });
+                method: 'GET',
+                credentials: 'include'
+                
+            });
 
         if (response.ok) {
             const userData = await response.json();

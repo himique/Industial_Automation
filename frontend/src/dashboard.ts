@@ -42,12 +42,11 @@ class Dashboard {
         `;
         try {
             const isAdmin = await checkUserSession();
-            console.log(isAdmin)
+            console.log(isAdmin);
             // Защищенный запрос, т.к. только админ видит эту страницу
-            if (!isAdmin) {
+            if (isAdmin) {
                 const data = await fetchGraphQL(query, {}, true);
                 const products: Product[] = data.allProducts;
-
                 this.productListEl.innerHTML = ''; // Очищаем старый список
 
                 if (products.length === 0) {
@@ -98,7 +97,11 @@ class Dashboard {
         // В мутации на бэкенде мы убрали description, так что и здесь он не нужен
         const mutation = `
     mutation CreateNewProduct($name: String!) {
-        createProduct(name: $name, description: "")
+        createProduct(name: $name, description: ""){
+            id
+            name
+            
+        }
     }
     `;
 

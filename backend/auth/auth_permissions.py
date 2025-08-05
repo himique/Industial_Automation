@@ -19,9 +19,12 @@ class IsAdmin(BasePermission):
         if not request:
             return False
 
-        token = request.cookies.get("access_token_cookie")
-
+        token = request.cookies.get("access_token")
+        if not token:
+            return False
         try:
+            if token.startswith("Bearer "):
+                token = token.split(" ")[1]
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
             username: Optional[str] = payload.get("sub")
             if username is None:
@@ -34,7 +37,7 @@ class IsAdmin(BasePermission):
             return False # Если нет сессии, нет и доступа
             
         user = await auth_crud.get_user_by_username(db_session, username=username)
-
+        print(f"User trying to get dashboard {user} and he has privelege {user.is_admin}")
         # Проверяем, что пользователь существует, активен и является админом
         if user and user.is_active and user.is_admin: # или user.is_admin
             return True

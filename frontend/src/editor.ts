@@ -157,30 +157,35 @@ class AssemblyEditor {
         formData.append("file", file);
 
         try {
+            const isAdmin = await checkUserSession();
             // Отправляем файл на бэкенд
-            const uploadUrl = `http://localhost:8000/upload-model/${this.productId}`;
-            console.log(`Uploading to: ${uploadUrl}`);
-            const response = await fetch(uploadUrl, {
-                method: 'POST',
-                // headers: { // Защищаем этот эндпоинт тоже
-                //     'Authorization': `Bearer ${localStorage.getItem("admin_token")}`
-                // },
-                body: formData,
-            });
-            if (!response.ok) throw new Error("File upload failed!");
+            if (isAdmin) {
+                console.log(`Есть админ ${isAdmin} `);
+                const uploadUrl = `http://localhost:8000/upload-model/${this.productId}`;
+                console.log(`Uploading to: ${uploadUrl}`);
+                const response = await fetch(uploadUrl, {
+                    method: 'POST',
 
-            const result = await response.json();
+                    body: formData,
+                });
+                if (!response.ok) throw new Error("File upload failed!");
 
-            // После успешной загрузки, нужно обновить запись в БД
-            // У вас пока нет такой мутации, но она понадобится
-            // await this.updateProductModelPath(result.path);
+                const result = await response.json();
 
-            // И загрузить модель во вьювер
-            await this.loadModel(result.path);
+                // После успешной загрузки, нужно обновить запись в БД
+                // У вас пока нет такой мутации, но она понадобится
+                // await this.updateProductModelPath(result.path);
 
+                // И загрузить модель во вьювер
+                await this.loadModel(result.path);
+            }
+            else {
+                alert("Admin privilege required");
+            }
         } catch (error) {
             if (error instanceof Error) alert(error.message);
         }
+
     }
     private updateLabels(): void {
         if (!this.model) return;

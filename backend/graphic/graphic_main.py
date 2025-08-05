@@ -59,13 +59,19 @@ class Query:
     @strawberry.field(permission_classes=[auth_permissions.IsAdmin])
     async def all_products(self, info: strawberry.Info) -> List[ProductType]:
         db: AsyncSession = info.context["db"]
-        return await crud.get_all_products_orm(db)
+        products_orm = await crud.get_all_products_orm(db)
+        plan_pydantic = [schemas.Product.model_validate(product) for product in products_orm]
+        # И возвращаем именно его!
+        return plan_pydantic
     
     @strawberry.field(permission_classes=[auth_permissions.IsAdmin])
     async def product_by_id(self, productId: strawberry.ID, info: strawberry.Info) -> Optional[ProductType]:
         db: AsyncSession = info.context["db"]
-        return await crud.get_product_by_id_orm(db, product_id=int(productId))
-
+        
+        products_orm = await crud.get_product_by_id_orm(db, product_id=int(productId))
+        plan_pydantic = schemas.Product.model_validate(products_orm)    
+        # И возвращаем именно его!
+        return plan_pydantic
 
 # --- МУТАЦИИ (Mutation) - ПОЛНАЯ ВЕРСИЯ ---
 @strawberry.type
@@ -74,8 +80,10 @@ class Mutation:
     async def create_product(self, name: str, description: str, info: strawberry.Info) -> ProductType:
         """Создает новый продукт."""
         db: AsyncSession = info.context["db"]
-        return await crud.create_product_orm(db, name=name, description=description)
-
+        products_orm = await crud.create_product_orm(db, name=name, description=description)
+        plan_pydantic = schemas.Product.model_validate(products_orm)
+        # И возвращаем именно его!
+        return plan_pydantic
     @strawberry.field(permission_classes=[auth_permissions.IsAdmin])
     async def add_component(self, component: ComponentInput, info: strawberry.Info) -> ComponentType:
         """Добавляет новый компонент к продукту."""

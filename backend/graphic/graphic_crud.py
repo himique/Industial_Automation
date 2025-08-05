@@ -15,8 +15,8 @@ async def get_all_products_orm(db: AsyncSession) -> List[models.Product]:
     stmt = select(models.Product).order_by(models.Product.name)
     result = await db.execute(stmt)
     return result.scalars().all()
-
-async def get_product_by_id_orm(db: AsyncSession, product_id: int) -> Optional[models.Product]:
+    
+async def get_product_by_id_orm(db: AsyncSession, product_id: int) -> Optional[schemas.Product]:
     
     stmt = select(models.Product).where(models.Product.id == product_id)
     result = await db.execute(stmt)

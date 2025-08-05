@@ -20,7 +20,8 @@ from dependencies import get_db
 from auth.auth_main import app as auth_api_router
 from graphic.graphic_main import router as graphql_api_router # Предполагается, что вы переименовали crud в router
 from auth.auth_dependencies import require_admin_user
-from auth import auth_models
+from auth import auth_schemas
+from auth.auth_permissions import IsAdmin as AdminCheck
 # from graphic import graphic_crud_orm # Вам нужно будет создать этот модуль для ORM-функций
 
 # --- LIFESPAN MANAGER ---
@@ -59,7 +60,7 @@ app.include_router(graphql_api_router, prefix="/graphql", tags=["GraphQL"])
 @app.post("/upload-model/{product_id}", tags=["Editor Actions"])
 async def upload_model(
     product_id: int,
-    user: Annotated[auth_models.User, Depends(require_admin_user)],
+    user: Annotated[auth_schemas.User, Depends(require_admin_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     file: UploadFile = File(...),
 ):
@@ -67,22 +68,25 @@ async def upload_model(
     
     # Здесь должна быть ваша логика по проверке продукта и обновлению пути в БД.
     # Этот код - просто пример.
-    
     # Сохраняем файл
-    file_path = os.path.join(settings.MODELS_DIR, f"product_{product_id}.glb")
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    if (user):
+        
+        file_path = os.path.join(settings.MODELS_DIR, f"product_{product_id}.glb")
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
     
     # Формируем относительный путь для БД (без static/)
-    relative_path_for_db = os.path.join("models", f"product_{product_id}.glb").replace('\\', '/')
+        relative_path_for_db = os.path.join("models", f"product_{product_id}.glb").replace('\\', '/')
     
     # TODO: Вызвать функцию для обновления model_path в БД
     # await graphic_crud_orm.update_product_model_path(db, product_id, relative_path_for_db)
     
     # Формируем относительный URL для ответа фронтенду (с static/)
-    url_path_for_response = os.path.join("static", relative_path_for_db).replace('\\', '/')
+        url_path_for_response = os.path.join("static", relative_path_for_db).replace('\\', '/')
 
-    return {"filename": file.filename, "path": url_path_for_response}
+        return {"filename": file.filename, "path": url_path_for_response}
+    else:
+        raise Exception("Acces denied. Admin privelege required")
 
 # Монтируем статику в самом конце
 app.mount("/static", StaticFiles(directory="static"), name="static")
