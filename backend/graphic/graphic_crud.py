@@ -2,7 +2,7 @@
 
 from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
 
 # Импортируем наши ORM-модели и Pydantic-схемы (для инпутов)
@@ -69,6 +69,13 @@ async def create_product_orm(db: AsyncSession, name: str, description: str) -> m
     await db.commit()
     await db.refresh(new_product)
     return new_product
+# --- File updload
+async def update_product_model_path_orm(db: AsyncSession, product_id: int, relative_path_for_db: str) -> models.Product:
+    # ... (код без изменений)
+    stmt_update = update(models.Product).where(models.Product.id == product_id).values(model_path=relative_path_for_db)
+    await db.execute(stmt_update)
+    await db.commit()
+    return stmt_update
 
 async def add_component_orm(db: AsyncSession, component_data: schemas.ComponentInput) -> models.Component:
     """Добавляет новый компонент к продукту."""

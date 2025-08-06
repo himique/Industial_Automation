@@ -89,8 +89,8 @@ class Mutation:
         """Добавляет новый компонент к продукту."""
         db: AsyncSession = info.context["db"]
         # Преобразуем Strawberry Input в Pydantic схему для передачи в CRUD
-        component_pydantic = schemas.ComponentInput.model_validate(component)
-        return await crud.add_component_orm(db, component_data=component_pydantic)
+        products_orm = await crud.add_component_orm(db, component)
+        return schemas.Component.model_validate(products_orm)
     
     @strawberry.field(permission_classes=[auth_permissions.IsAdmin])
     async def create_assembly_plan(self, product_id: int, name: str, steps: List[AssemblyStepInput], info: strawberry.Info) -> AssemblyPlanType:

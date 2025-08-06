@@ -34,8 +34,9 @@ class AssemblyEditor {
 
     // Подсветка
     private selectedMesh: THREE.Mesh | null = null;
-    private originalMaterials: Map<string, THREE.Material | THREE.Material[]> = new Map();
-    private highlightMaterial = new THREE.MeshStandardMaterial({ color: 0xffa500, emissive: 0x8f5b00 });
+    private originalMaterials = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+    private defaultMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0, roughness: 0 });
+    private highlightMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff83, emissive: 0x550000, name: 'highlight', metalness: 0, roughness: 1, })
 
     // UI Элементы
     private labels: Label[] = [];
@@ -50,12 +51,19 @@ class AssemblyEditor {
     // Состояние редактора
     private components: Component[] = [];
     private productId: number | null = null;
+    // GraphQl
+    private isAdmin = false;
+    // Mouse action
+    private pressTimer: number | null = null;
+    private isLongPress = false;
 
     constructor() {
         // Проверяем авторизацию при входе на страницу
 
         this.tweenGroup = new TWEEN.Group();
         // Получаем ID продукта из URL
+        //GraphQl endpoint
+
         const urlParams = new URLSearchParams(window.location.search);
         this.productId = Number(urlParams.get('product_id'));
         if (!this.productId) {
@@ -88,7 +96,9 @@ class AssemblyEditor {
         container.appendChild(this.renderer.domElement);
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.addLights();
-
+        // Mouse action
+        this.renderer.domElement.addEventListener('mousedown', this.onMouseDown);
+        this.renderer.domElement.addEventListener('mouseup', this.onCanvasClick);
         // --- Навешиваем события ---
         this.renderer.domElement.addEventListener('click', this.onCanvasClick);
         this.addComponentBtn.addEventListener('click', this.addComponentToList);
@@ -98,8 +108,15 @@ class AssemblyEditor {
         new Sortable(this.stepListEl, { animation: 150 });
 
         // Загружаем модель (пока захардкожено, в идеале путь должен приходить с бэкенда)
-        this.initEditor();
+
         this.animate();
+    }
+    public async initialize() {
+        const sessionResult = await checkUserSession();
+
+        this.isAdmin = !!sessionResult;
+        console.log(`User is admin: ${this.isAdmin}`);
+        await this.initEditor();
     }
     private async initEditor() {
         // Запрашиваем всю информацию о продукте
@@ -113,28 +130,27 @@ class AssemblyEditor {
         }
     `;
         try {
-            const isAdmin = await checkUserSession();
+
             const data = await fetchGraphQL(query, { productId: this.productId }, true);
-            console.log(isAdmin)
+
             // Защищенный запрос, т.к. только админ видит эту страницу
-            if (!isAdmin) {
-                if (!data || !data.productById) {
-                    throw new Error(`Product with ID ${this.productId} not found.`);
-                }
 
-                const product = data.productById;
-                const modelPath = product.modelPath;
+            if (!data || !data.productById) {
+                throw new Error(`Product with ID ${this.productId} not found.`);
+            }
 
-                if (modelPath) {
-                    // Если путь к модели есть, загружаем ее
-                    console.log(`Found model path: ${modelPath}. Loading model...`);
-                    await this.loadModel(modelPath);
-                } else {
-                    // Если пути нет, сообщаем пользователю и готовимся к загрузке
-                    console.log("Product exists, but has no model. Prompting for upload.");
-                    alert(`Product "${product.name}" is ready. Now, please upload a 3D model.`);
-                    // Здесь можно показать кнопку "Upload Model", которая по клику вызовет this.uploadInput.click();
-                }
+            const product = data.productById;
+            const modelPath = product.modelPath;
+
+            if (modelPath) {
+                // Если путь к модели есть, загружаем ее
+                console.log(`Found model path: ${modelPath}. Loading model...`);
+                await this.loadModel(modelPath);
+            } else {
+                // Если пути нет, сообщаем пользователю и готовимся к загрузке
+                console.log("Product exists, but has no model. Prompting for upload.");
+                alert(`Product "${product.name}" is ready. Now, please upload a 3D model.`);
+                // Здесь можно показать кнопку "Upload Model", которая по клику вызовет this.uploadInput.click();
             };
             // Проверяем, что продукт вообще найден
         } catch (error) {
@@ -157,15 +173,14 @@ class AssemblyEditor {
         formData.append("file", file);
 
         try {
-            const isAdmin = await checkUserSession();
+
             // Отправляем файл на бэкенд
-            if (isAdmin) {
-                console.log(`Есть админ ${isAdmin} `);
+            if (this.isAdmin) {
+                console.log(`Есть админ ${this.isAdmin} `);
                 const uploadUrl = `http://localhost:8000/upload-model/${this.productId}`;
                 console.log(`Uploading to: ${uploadUrl}`);
                 const response = await fetch(uploadUrl, {
                     method: 'POST',
-
                     body: formData,
                 });
                 if (!response.ok) throw new Error("File upload failed!");
@@ -175,7 +190,6 @@ class AssemblyEditor {
                 // После успешной загрузки, нужно обновить запись в БД
                 // У вас пока нет такой мутации, но она понадобится
                 // await this.updateProductModelPath(result.path);
-
                 // И загрузить модель во вьювер
                 await this.loadModel(result.path);
             }
@@ -206,8 +220,27 @@ class AssemblyEditor {
             }
         });
     }
+    private onMouseDown = (_event: MouseEvent) => {
+        // Сбрасываем флаг долгого нажатия
+        this.isLongPress = false;
+
+        // Запускаем таймер. Если он сработает, значит, нажатие было долгим.
+        this.pressTimer = window.setTimeout(() => {
+            // Устанавливаем флаг, что выстрел рейкаста нужно отменить.
+            this.isLongPress = true;
+        }, 100); // 100 миллисекунд = 0.1 секунды
+    }
     // --- Логика клика по 3D модели ---
     private onCanvasClick = (event: MouseEvent) => {
+        if (this.pressTimer) {
+            clearTimeout(this.pressTimer);
+        }
+
+        // Если флаг isLongPress был установлен таймером, значит, это было долгое нажатие.
+        // Ничего не делаем, просто выходим из функции.
+        if (this.isLongPress) {
+            return; // ВЫСТРЕЛ ОТМЕНЕН
+        }
         const bounds = this.renderer.domElement.getBoundingClientRect();
         this.mouse.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
         this.mouse.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
@@ -217,16 +250,44 @@ class AssemblyEditor {
         const intersects = this.raycaster.intersectObject(this.model, true);
 
         if (intersects.length > 0 && intersects[0].object instanceof THREE.Mesh) {
-            const clickedObject = intersects[0].object;
+
             // Сбрасываем подсветку с предыдущего объекта
             if (this.selectedMesh) {
-                this.selectedMesh.material = this.originalMaterials.get(this.selectedMesh.name)!;
+                // Получаем его сохраненный оригинальный материал
+                const originalMaterial = this.originalMaterials.get(this.selectedMesh);
+                // Проверяем, что материал действительно был найден, прежде чем его применить
+                if (originalMaterial) {
+                    this.selectedMesh.material = originalMaterial;
+                }
             }
-            // Подсвечиваем новый
-            this.selectedMesh = clickedObject;
-            this.selectedMesh.material = this.highlightMaterial;
-            // Обновляем UI
-            this.meshNameEl.textContent = this.selectedMesh.name;
+
+            // 2. Если клик был в пустоту, просто сбрасываем состояние и выходим.
+            if (intersects.length === 0) {
+                this.selectedMesh = null;
+                this.meshNameEl.textContent = 'None';
+                return;
+            }
+            // 3. Если клик попал на меш, обрабатываем новое выделение.
+            const clickedObject = intersects[0].object;
+            if (clickedObject instanceof THREE.Mesh) {
+                // Сохраняем ссылку на новый выделенный объект
+                this.selectedMesh = clickedObject;
+
+                // Сохраняем его оригинальный материал (если он еще не был сохранен)
+                if (!this.originalMaterials.has(this.selectedMesh)) {
+                    this.originalMaterials.set(this.selectedMesh, this.selectedMesh.material);
+                }
+
+                // Применяем материал для подсветки
+                this.selectedMesh.material = this.highlightMaterial;
+
+                // Обновляем UI
+                this.meshNameEl.textContent = this.selectedMesh.name;
+            } else {
+                // Если пересечение есть, но это не меш (например, линия или точка)
+                this.selectedMesh = null;
+                this.meshNameEl.textContent = 'None';
+            }
         }
     }
 
@@ -290,7 +351,11 @@ class AssemblyEditor {
                 // --- ИСПРАВЛЕНИЕ №1 ---
                 const mutation = `
                 mutation AddComponent($component: ComponentInput!) {
-                    addComponent(component: $component)
+                    addComponent(component: $component){
+                    id
+                    name
+                    meshId
+                    }
                 }
             `;
                 const variables = {
@@ -332,7 +397,20 @@ class AssemblyEditor {
             // --- ИСПРАВЛЕНИЕ №2 ---
             const planMutation = `
             mutation CreateAssemblyPlan($productId: Int!, $planName: String!, $steps: [AssemblyStepInput!]!) {
-                createAssemblyPlan(productId: $productId, name: $planName, steps: $steps)
+                createAssemblyPlan(productId: $productId, name: $planName, steps: $steps){
+                    id
+                    name
+                    steps{
+                        id
+                        stepNumber
+                        actionType
+                        component{
+                            id
+                            name
+                            meshId
+                        }
+                    }
+                }
             }
         `;
             const planVariables = {
@@ -374,24 +452,63 @@ class AssemblyEditor {
         this.scene.add(dirLight2);
     }
     private async loadModel(path: string): Promise<void> {
-        const loader = new GLTFLoader(); // <-- Вот здесь он будет использоваться
+        const loader = new GLTFLoader();
         try {
-            const gltf = await loader.loadAsync(path);
+            const fullUrl = `http://localhost:8000${path}`;
+            console.log(`Attempting to load model from: ${fullUrl}`);
+            const gltf = await loader.loadAsync(fullUrl);
             this.model = gltf.scene;
 
+            // Проходим по всем дочерним элементам загруженной модели.
             this.model.traverse(child => {
+                // Нас интересуют только видимые объекты (меши).
                 if (child instanceof THREE.Mesh) {
-                    this.originalMaterials.set(child.name, child.material);
+                    // Выводим имя найденного объекта в консоль для отладки.
+                    console.log(`Found mesh in 3D model with name: '${child.name}'`);
+
+                    // Игнорируем все материалы из файла и принудительно 
+                    // присваиваем наш стандартный "дефолтный" материал.
+                    child.material = this.defaultMaterial;
                 }
             });
 
+            // Добавляем модель с уже измененными материалами на сцену.
             this.scene.add(this.model);
-            // ... Здесь можно вызвать frameArea для начального позиционирования
+
+            // Автоматически настраиваем камеру, чтобы модель была в кадре.
+            this.frameArea(this.model);
 
         } catch (error) {
             console.error("Failed to load model:", error);
+
         }
     }
+    private frameArea(object: THREE.Object3D): void {
+        const box = new THREE.Box3().setFromObject(object);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+
+        // Вычисляем максимальный размер объекта, чтобы камера была достаточно далеко
+        const maxSize = Math.max(size.x, size.y, size.z);
+        const fitHeightDistance = maxSize / (2 * Math.atan(Math.PI * this.camera.fov / 360));
+        const fitWidthDistance = fitHeightDistance / this.camera.aspect;
+        const distance = 1.2 * Math.max(fitHeightDistance, fitWidthDistance);
+
+        const direction = new THREE.Vector3()
+            .subVectors(this.camera.position, center)
+            .normalize()
+            .multiplyScalar(distance);
+
+        this.camera.position.copy(center).add(direction);
+        this.camera.near = distance / 100;
+        this.camera.far = distance * 100;
+        this.camera.updateProjectionMatrix();
+
+        // Направляем OrbitControls на центр объекта
+        this.controls.target.copy(center);
+        this.controls.update();
+    }
+
     private animate = (): void => {
         requestAnimationFrame(this.animate);
 
@@ -403,4 +520,10 @@ class AssemblyEditor {
     }
 }
 
-new AssemblyEditor();
+(async () => {
+    // 1. Сначала синхронно создаем объект (строится "дом" по чертежу)
+    const editor = new AssemblyEditor();
+
+    // 2. Затем асинхронно его инициализируем (проверяем сессию, загружаем данные)
+    await editor.initialize();
+})();
