@@ -65,24 +65,27 @@ async def upload_model(
     db: Annotated[AsyncSession, Depends(get_db)],
     file: UploadFile = File(...),
 ):
-    """Загружает файл 3D-модели для указанного продукта."""
-    
-    # Здесь должна быть ваша логика по проверке продукта и обновлению пути в БД.
-    # Этот код - просто пример.
     # Сохраняем файл
     if (user):
+        
         print(f"Upload model user is {user}")
         file_path = os.path.join(settings.MODELS_DIR, f"product_{product_id}.glb")
+        print(f"Uploading file path is {file_path}")
+        try:
+            os.remove(file_path)
+            print(f"Successfully deleted old file: {file_path}")
+        except FileNotFoundError:
+        # Если файла не было, это нормально. Ничего страшного не произошло.
+            print(f"No old file to delete at: {file_path}")
+        except OSError as e:
+        # Если произошла другая ошибка при удалении (например, нет прав), нужно ее обработать.
+            print(f"Error deleting old file: {e}")
+            
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-    
     # Формируем относительный путь для БД (без static/)
         relative_path_for_db = os.path.join("models", f"product_{product_id}.glb").replace('\\', '/')
-    
-    # TODO: Вызвать функцию для обновления model_path в БД
-    # await graphic_crud_orm.update_product_model_path(db, product_id, relative_path_for_db)
-        
-    # Формируем относительный URL для ответа фронтенду (с static/)
+   
         url_path_for_response = os.path.join("static", relative_path_for_db).replace('\\', '/')
         await graphic_crud.update_product_model_path_orm(db, product_id, f"/{url_path_for_response}")
 

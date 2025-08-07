@@ -116,6 +116,9 @@ class AssemblyEditor {
         this.isAdmin = !!sessionResult;
         console.log(`User is admin: ${this.isAdmin}`);
         await this.initEditor();
+        
+        
+        
     }
     private async initEditor() {
         // Запрашиваем всю информацию о продукте
@@ -145,6 +148,7 @@ class AssemblyEditor {
                 // Если путь к модели есть, загружаем ее
                 console.log(`Found model path: ${modelPath}. Loading model...`);
                 await this.loadModel(modelPath);
+                
             } else {
                 // Если пути нет, сообщаем пользователю и готовимся к загрузке
                 console.log("Product exists, but has no model. Prompting for upload.");
@@ -160,6 +164,7 @@ class AssemblyEditor {
             alert(errorMessage);
             console.error(error);
         }
+        
     }
     private handleFileUpload = async (event: Event) => {
         const input = event.target as HTMLInputElement;
@@ -191,7 +196,7 @@ class AssemblyEditor {
                 // await this.updateProductModelPath(result.path);
                 // И загрузить модель во вьювер
                 await this.loadModel(result.path);
-                location.reload();
+                // location.reload();
             }
             else {
                 alert("Admin privilege required");
@@ -419,7 +424,7 @@ class AssemblyEditor {
                 }
             }
         `;
- 
+
             const planVariables = {
                 productId: this.productId,
                 planName: `Assembly Plan for Product #${this.productId}`,
@@ -465,26 +470,39 @@ class AssemblyEditor {
             const fullUrl = `http://localhost:8000${path}`;
             console.log(`Attempting to load model from: ${fullUrl}`);
             const gltf = await loader.loadAsync(fullUrl);
-            this.model = gltf.scene;
+            const newModel = gltf.scene;
 
-            // Проходим по всем дочерним элементам загруженной модели.
-            this.model.traverse(child => {
-                // Нас интересуют только видимые объекты (меши).
+
+            if (this.model) {
+                console.log(`Removing old model (UUID: ${this.model.uuid})`);
+                this.scene.remove(this.model);
+                this.model.traverse(child => {
+                    if (child instanceof THREE.Mesh) {
+                        child.geometry.dispose();
+                        // Важно: если this.defaultMaterial - это один и тот же объект,
+                        // его НЕЛЬЗЯ очищать через child.material.dispose()!
+                        // Если у каждого меша свой уникальный материал, то можно.
+                        // Обычно материалы не очищают, если они могут переиспользоваться.
+                    }
+                });
+                this.selectedMesh = null;
+                this.meshNameEl.textContent = 'None'; // Обновляем UI
+            }
+
+            // 3. Обрабатываем новую модель (например, заменяем материалы)
+            newModel.traverse(child => {
                 if (child instanceof THREE.Mesh) {
-                    // Выводим имя найденного объекта в консоль для отладки.
-                    console.log(`Found mesh in 3D model with name: '${child.name}'`);
-
-                    // Игнорируем все материалы из файла и принудительно 
-                    // присваиваем наш стандартный "дефолтный" материал.
                     child.material = this.defaultMaterial;
                 }
             });
 
-            // Добавляем модель с уже измененными материалами на сцену.
-            this.scene.add(this.model);
+            // 4. ДОБАВЛЯЕМ новую модель на сцену
+            this.scene.add(newModel);
 
+            this.model = newModel;
             // Автоматически настраиваем камеру, чтобы модель была в кадре.
             this.frameArea(this.model);
+
 
         } catch (error) {
             console.error("Failed to load model:", error);
