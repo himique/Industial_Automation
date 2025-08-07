@@ -192,6 +192,7 @@ class AssemblyEditor {
                 // await this.updateProductModelPath(result.path);
                 // И загрузить модель во вьювер
                 await this.loadModel(result.path);
+                location.reload();
             }
             else {
                 alert("Admin privilege required");
@@ -228,7 +229,7 @@ class AssemblyEditor {
         this.pressTimer = window.setTimeout(() => {
             // Устанавливаем флаг, что выстрел рейкаста нужно отменить.
             this.isLongPress = true;
-        }, 100); // 100 миллисекунд = 0.1 секунды
+        }, 200); // 100 миллисекунд = 0.1 секунды
     }
     // --- Логика клика по 3D модели ---
     private onCanvasClick = (event: MouseEvent) => {
@@ -338,23 +339,36 @@ class AssemblyEditor {
 
     // --- Сохранение всего плана ---
     private savePlan = async () => {
-        if (!this.productId) { /* ... */ return; }
-        // ... (другие проверки) ...
+        if (!this.productId) {
+            alert("Product ID is missing.");
+            return;
+        }
+
+        if (this.components.length === 0) {
+            alert("Please add at least one component to the list before saving.");
+            return;
+        }
+
+        const stepNodes = Array.from(this.stepListEl.children) as HTMLLIElement[];
+        if (stepNodes.length === 0) {
+            alert("The assembly steps list is empty. Please define the assembly order.");
+            return;
+        }
 
         this.savePlanBtn.disabled = true;
-        this.savePlanBtn.textContent = 'Saving...';
+        this.savePlanBtn.textContent = 'Сохранение...';
 
         try {
+            // Map для сопоставления временного ID с фронтенда (tempId)
+            // с реальным ID, полученным из базы данных.
             const componentIdMap = new Map<number, number>();
 
+            // ЭТАП 1: Сохраняем каждый компонент по отдельности, чтобы получить его реальный ID.
             for (const comp of this.components) {
-                // --- ИСПРАВЛЕНИЕ №1 ---
                 const mutation = `
                 mutation AddComponent($component: ComponentInput!) {
                     addComponent(component: $component){
-                    id
-                    name
-                    meshId
+                        id # Нам от сервера нужен только ID
                     }
                 }
             `;
@@ -366,70 +380,65 @@ class AssemblyEditor {
                     }
                 };
                 const data = await fetchGraphQL(mutation, variables);
-                componentIdMap.set(comp.tempId, data.addComponent);
+
+                // --- ИСПРАВЛЕНИЕ №1: Сохраняем только числовой ID, а не весь объект. ---
+                if (data && data.addComponent && typeof data.addComponent.id === 'number') {
+                    componentIdMap.set(comp.tempId, data.addComponent.id);
+                } else {
+                    // Прерываем выполнение, если сервер не вернул корректный ID.
+                    throw new Error(`Не удалось получить корректный ID для компонента "${comp.name}".`);
+                }
             }
 
-            const stepNodes = Array.from(this.stepListEl.children) as HTMLLIElement[];
-            // ... (код для сбора stepsDataForGQL) ...
+            // ЭТАП 2: Формируем данные для шагов сборки, используя реальные ID.
             const stepsDataForGQL = stepNodes.map((node, index) => {
-                // 1. Получаем временный ID из data-атрибута HTML-элемента
                 const tempId = Number(node.dataset.componentId);
                 if (!tempId) {
-                    // Добавляем проверку на случай, если data-атрибут пуст
-                    throw new Error(`Component item in step list is missing a data-component-id attribute.`);
+                    throw new Error(`Элемент в списке шагов не имеет атрибута data-component-id.`);
                 }
 
-                // 2. Ищем настоящий ID, который мы получили от бэкенда, в нашей Map
+                // Находим реальный ID, сохраненный на предыдущем шаге.
                 const newId = componentIdMap.get(tempId);
-                if (!newId) {
-                    // Добавляем проверку на случай, если мы не можем найти соответствие
-                    throw new Error(`Could not find a saved component for tempId: ${tempId}`);
+                if (newId === undefined) {
+                    throw new Error(`Не удалось найти сохраненный компонент для временного ID: ${tempId}`);
                 }
 
-                // 3. Возвращаем объект в правильном формате для GraphQL
+                // --- ИСПРАВЛЕНИЕ №2: Формируем объект шага в правильном формате. ---
                 return {
-                    componentId: newId,      // Используем найденный newId
-                    stepNumber: index + 1    // Порядковый номер - это просто индекс в списке
+                    componentId: newId,      // Теперь это корректное число (Int).
+                    stepNumber: index + 1,
+                    actionType: "Assemble" // Добавлено недостающее обязательное поле.
                 };
             });
 
-
-            // --- ИСПРАВЛЕНИЕ №2 ---
+            // ЭТАП 3: Создаем сам план сборки с уже подготовленным массивом шагов.
             const planMutation = `
             mutation CreateAssemblyPlan($productId: Int!, $planName: String!, $steps: [AssemblyStepInput!]!) {
                 createAssemblyPlan(productId: $productId, name: $planName, steps: $steps){
                     id
                     name
-                    steps{
-                        id
-                        stepNumber
-                        actionType
-                        component{
-                            id
-                            name
-                            meshId
-                        }
-                    }
                 }
             }
         `;
+
             const planVariables = {
                 productId: this.productId,
                 planName: `Assembly Plan for Product #${this.productId}`,
                 steps: stepsDataForGQL
             };
 
-            const data = await fetchGraphQL(planMutation, planVariables);
+            const result = await fetchGraphQL(planMutation, planVariables);
 
-            alert(`Assembly plan saved successfully! Plan ID: ${data.createAssemblyPlan}`);
+            alert(`План сборки успешно сохранен! ID плана: ${result.createAssemblyPlan.id}`);
 
         } catch (error) {
             if (error instanceof Error) {
-                alert(`Error saving plan: ${error.message}`);
+                alert(`Ошибка при сохранении плана: ${error.message}`);
+                console.error(error);
             }
         } finally {
             this.savePlanBtn.disabled = false;
-            this.savePlanBtn.textContent = 'Save Assembly Plan';
+            this.savePlanBtn.textContent = 'Сохранить план сборки';
         }
     }
 

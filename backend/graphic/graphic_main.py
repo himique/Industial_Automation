@@ -7,6 +7,7 @@ from strawberry.experimental.pydantic import type as pydantic_type
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 from starlette.responses import Response
+import dataclasses
 # --- ЗАВИСИМОСТИ И МОДЕЛИ ---
 from dependencies import get_db
 from auth import auth_permissions
@@ -97,7 +98,7 @@ class Mutation:
         """Создает или перезаписывает план сборки для продукта."""
         db: AsyncSession = info.context["db"]
         # Преобразуем список Strawberry Input в список Pydantic схем
-        steps_pydantic = [schemas.AssemblyStepInput.model_validate(step) for step in steps]
+        steps_pydantic = [schemas.AssemblyStepInput.model_validate(dataclasses.asdict(step)) for step in steps]
         
         # Вызываем CRUD-функцию, которая выполнит все в одной транзакции
         new_plan = await crud.create_assembly_plan_orm(db, product_id, name, steps_pydantic)

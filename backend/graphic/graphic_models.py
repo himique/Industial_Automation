@@ -61,7 +61,7 @@ class AssemblyPlan(Base):
     # Связь "многие-к-одному"
     product = relationship("Product", back_populates="assembly_plans")
     # Связь "один-ко-многим"
-    steps = relationship("AssemblyStep", back_populates="plan", cascade="all, delete-orphan", order_by="AssemblyStep.step_number")
+    steps = relationship("AssemblyStep", back_populates="plan", cascade="all, delete-orphan", passive_deletes=True, order_by="AssemblyStep.step_number")
 
     def __repr__(self):
         return f"<AssemblyPlan(id={self.id}, name='{self.name}')>"
