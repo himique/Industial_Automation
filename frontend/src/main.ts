@@ -50,7 +50,7 @@ class AssemblyApp {
 
     // Материалы для визуализации
     private highlightMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff83, metalness: 0, roughness: 1, name: 'highlight' });
-    private completedMaterial = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0, roughness: 0, name: 'completed' });
+    private completedMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0, roughness: 0, name: 'completed' });
     private defaultMaterial = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0, roughness: 0 });
     // UI Элементы
 
@@ -97,7 +97,6 @@ class AssemblyApp {
         this.controls.update();
 
         this.addLights();
-        this.addHelpers();
 
         // Запуск
         this.init();
@@ -254,13 +253,7 @@ class AssemblyApp {
             })
             .start();
     }
-    private addHelpers(): void {
-        const gridHelper = new THREE.GridHelper(10, 10);
-        this.scene.add(gridHelper);
 
-        const axesHelper = new THREE.AxesHelper(5);
-        this.scene.add(axesHelper);
-    }
     // frontend/src/main.ts
 
     private async loadModel(path: string): Promise<void> {

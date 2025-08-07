@@ -63,7 +63,6 @@ class AssemblyEditor {
         this.tweenGroup = new TWEEN.Group();
         // Получаем ID продукта из URL
         //GraphQl endpoint
-
         const urlParams = new URLSearchParams(window.location.search);
         this.productId = Number(urlParams.get('product_id'));
         if (!this.productId) {
@@ -420,7 +419,7 @@ class AssemblyEditor {
                 }
             }
         `;
-
+ 
             const planVariables = {
                 productId: this.productId,
                 planName: `Assembly Plan for Product #${this.productId}`,
