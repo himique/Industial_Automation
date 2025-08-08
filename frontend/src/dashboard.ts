@@ -110,8 +110,8 @@ class Dashboard {
             // Теперь fetchGraphQL будет знать, что нужно добавить токен
             const data = await fetchGraphQL(mutation, { name }, true);
 
-            const newProductId = data.createProduct;
-
+            const newProductId = data.createProduct.id;
+            console.log(newProductId)
             alert(`Product created! ID: ${newProductId}. Redirecting to editor...`);
             window.location.href = `/editor.html?product_id=${newProductId}`;
 

@@ -190,12 +190,16 @@ class AssemblyEditor {
                 if (!response.ok) throw new Error("File upload failed!");
 
                 const result = await response.json();
-
-                // После успешной загрузки, нужно обновить запись в БД
-                // У вас пока нет такой мутации, но она понадобится
-                // await this.updateProductModelPath(result.path);
+                const modelPath = `/${result.path}`
                 // И загрузить модель во вьювер
-                await this.loadModel(result.path);
+                const isLoaded = await this.loadModel(modelPath);
+                console.log(isLoaded);
+                if(isLoaded == true){
+                    alert("File uploaded succesfully")
+                }
+                else{
+                    alert("Error by file uploading")
+                }
                 // location.reload();
             }
             else {
@@ -464,7 +468,7 @@ class AssemblyEditor {
         dirLight2.position.set(-5, -10, -7.5);
         this.scene.add(dirLight2);
     }
-    private async loadModel(path: string): Promise<void> {
+    private async loadModel(path: string): Promise<boolean> {
         const loader = new GLTFLoader();
         try {
             const fullUrl = `http://localhost:8000${path}`;
@@ -502,13 +506,14 @@ class AssemblyEditor {
             this.model = newModel;
             // Автоматически настраиваем камеру, чтобы модель была в кадре.
             this.frameArea(this.model);
-
+            return true
 
         } catch (error) {
             console.error("Failed to load model:", error);
-
+            return false
         }
     }
+    
     private frameArea(object: THREE.Object3D): void {
         const box = new THREE.Box3().setFromObject(object);
         const size = box.getSize(new THREE.Vector3());
